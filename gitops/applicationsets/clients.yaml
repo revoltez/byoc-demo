@@ -1,0 +1,64 @@
+# NOTE: bootstrap.sh does NOT apply this file. In the demo, onboarding is imperative (client-add
+# creates each client's vcluster + agent + Application together), so this ApplicationSet is kept as
+# the declarative "fleet as code" alternative you would graduate to once onboarding is automated.
+# To use it, apply it yourself and stop letting client-add create the Application.
+#
+# The client fleet, as one object. A git "files" generator reads every clients/*.yaml and
+# produces one Activepieces Application per client, in that client's agent namespace on the
+# control plane. The principal ships each Application to its agent, which reconciles it locally.
+#
+# Adding a client to the fleet = commit a clients/<name>.yaml (plus running client-add.sh once to
+# create the vcluster + agent, which is infra, not gitops). __REPO_URL__ / __REPO_REVISION__ are
+# substituted by bootstrap.sh from your git remote.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: clients
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=default"]
+  generators:
+    - git:
+        repoURL: __REPO_URL__
+        revision: __REPO_REVISION__
+        files:
+          - path: clients/*.yaml
+  template:
+    metadata:
+      name: "ap-{{.name}}"
+      namespace: "{{.name}}" # per-agent namespace => routed to the client's agent
+      labels:
+        demo/client: "{{.name}}"
+        demo/lane: "{{.lane}}"
+    spec:
+      project: default
+      source:
+        repoURL: __REPO_URL__
+        targetRevision: __REPO_REVISION__
+        path: charts/activepieces-lite
+        helm:
+          ignoreMissingValueFiles: true
+          valueFiles:
+            - values.yaml
+            - "values.{{.lane}}.yaml" # lane -> image tag lives in the overlay
+          parameters:
+            - name: client.name
+              value: "{{.name}}"
+            - name: flags.ssoEnabled
+              value: "{{ dig `flags` `ssoEnabled` false . }}"
+            - name: flags.tablesEnabled
+              value: "{{ dig `flags` `tablesEnabled` false . }}"
+            - name: flags.auditLogEnabled
+              value: "{{ dig `flags` `auditLogEnabled` false . }}"
+            - name: flags.analyticsEnabled
+              value: "{{ dig `flags` `analyticsEnabled` false . }}"
+      destination:
+        server: https://kubernetes.default.svc # the agent reconciles in its own cluster
+        namespace: activepieces
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

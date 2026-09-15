@@ -1,0 +1,2 @@
+# PR-preview inputs land here as pr-<n>.yaml (written by scripts/preview.sh). Kept so the
+# pr-previews ApplicationSet's git files generator has a directory to read.

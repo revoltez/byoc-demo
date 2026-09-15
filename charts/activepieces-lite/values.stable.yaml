@@ -1,0 +1,4 @@
+# Lane: stable -> the monthly "blessed checkpoint" clients can pin to.
+lane: stable
+image:
+  tag: "0.90.4"

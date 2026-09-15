@@ -1,0 +1,5 @@
+# A client on the monthly stable checkpoint, with the Tables premium feature switched on.
+name: rich-client
+lane: stable
+flags:
+  tablesEnabled: true

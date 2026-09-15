@@ -1,0 +1,11 @@
+apiVersion: v2
+name: activepieces-lite
+description: >-
+  A deliberately tiny Activepieces deployment for the demo: one pod, PGLITE database,
+  in-memory queue, CE edition. Zero external dependencies (no Postgres, no Redis), so a
+  whole "client" install is a single container. Not for production; the production shape is
+  the upstream chart at activepieces/activepieces/deploy/activepieces-helm.
+type: application
+version: 0.1.0
+# appVersion is informational only; the real version is chosen per lane via image.tag.
+appVersion: "lane-pinned"

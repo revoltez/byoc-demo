@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ap.name" . }}
+  labels:
+    {{- include "ap.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  # PGLITE is a single-writer embedded DB, so never run two pods at once.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "ap.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ap.labels" . | nindent 8 }}
+      annotations:
+        # Roll the pod when flags change so a flag flip actually takes effect.
+        checksum/flags: {{ .Values.flags | toJson | sha256sum }}
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: activepieces
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+          env:
+            # The whole point: one container, no external services.
+            - name: AP_CONTAINER_TYPE
+              value: "WORKER_AND_APP"
+            - name: AP_EDITION
+              value: "ce"
+            - name: AP_ENVIRONMENT
+              value: "prod"
+            - name: AP_DB_TYPE
+              value: "PGLITE"
+            - name: AP_REDIS_TYPE
+              value: "MEMORY"
+            - name: AP_EXECUTION_MODE
+              value: {{ .Values.executionMode | quote }}
+            - name: AP_CONFIG_PATH
+              value: {{ .Values.persistence.mountPath | quote }}
+            - name: AP_FRONTEND_URL
+              value: {{ include "ap.frontendUrl" . | quote }}
+            - name: AP_TELEMETRY_ENABLED
+              value: "false"
+            - name: AP_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ap.name" . }}-secrets
+                  key: AP_ENCRYPTION_KEY
+            - name: AP_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ap.name" . }}-secrets
+                  key: AP_JWT_SECRET
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+            - name: flags
+              mountPath: /etc/activepieces-demo
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /api/v1/flags
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /api/v1/flags
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "ap.name" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: flags
+          configMap:
+            name: {{ include "ap.name" . }}-flags

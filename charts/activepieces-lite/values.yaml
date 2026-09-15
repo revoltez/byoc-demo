@@ -1,0 +1,72 @@
+# Base values. Lane overlays (values.latest.yaml / values.stable.yaml / values.lts.yaml)
+# only change image.tag and the displayed lane. The ApplicationSet layers them on top.
+
+# Which client this instance belongs to (used for names, labels, the demo banner).
+client:
+  name: rich-client
+# Version lane: latest | stable | lts. Overridden by the lane overlay.
+lane: latest
+
+image:
+  repository: ghcr.io/activepieces/activepieces
+  tag: latest # overridden per lane overlay
+  pullPolicy: IfNotPresent
+
+# Public URL Activepieces advertises (webhooks, redirects). The client-add script sets this
+# to something like http://rich-client.192.168.49.2.nip.io via the ApplicationSet parameters.
+frontendUrl: ""
+
+# Feature flags. This is the demo *mechanism*: flags live in git per client and render into a
+# ConfigMap the pod mounts, so "flip a premium feature on a supported lane" is one line here.
+# In real Activepieces these are PlatformPlan rows flipped via the platform API, not env vars;
+# the optional flags Job (see templates/flags-job.yaml) shows that path.
+flags:
+  ssoEnabled: false
+  tablesEnabled: false
+  auditLogEnabled: false
+  analyticsEnabled: false
+  agentsEnabled: true
+
+# One pod, no sidecars. UNSANDBOXED keeps CE happy without privileged runtimes on minikube.
+executionMode: UNSANDBOXED
+
+resources:
+  # AP runs app + worker + engine in one Node process here (WORKER_AND_APP). 1Gi OOM-kills it on
+  # boot; 2Gi is comfortable. Bump higher if you deploy heavier flows.
+  requests:
+    cpu: 250m
+    memory: 768Mi
+  limits:
+    cpu: "1500m"
+    memory: 2Gi
+
+# PGLITE data lives under AP_CONFIG_PATH. Persist it so a seeded flow survives pod restarts.
+persistence:
+  enabled: true
+  size: 1Gi
+  storageClass: "" # "" = cluster default (minikube: standard/hostpath)
+  mountPath: /data
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: nginx
+  host: "" # e.g. rich-client.192.168.49.2.nip.io ; empty => no ingress rule host
+
+# DEMO SECRETS ONLY. Committed on purpose so the demo is one command. Never do this for real.
+# AP_ENCRYPTION_KEY must be 32 hex chars (16 bytes); AP_JWT_SECRET is any string.
+secrets:
+  encryptionKey: "00000000000000000000000000000abc"
+  jwtSecret: "demo-jwt-secret-not-for-production-use"
+
+# Optional post-sync Job that calls the AP API to flip real PlatformPlan flags. Off by default
+# because it needs an admin user to exist first; the seed-flow script covers that path instead.
+flagsJob:
+  enabled: false
+
+podSecurityContext:
+  # hostpath PVCs on minikube are root-owned; fsGroup lets the node user write PGLITE data.
+  fsGroup: 1000

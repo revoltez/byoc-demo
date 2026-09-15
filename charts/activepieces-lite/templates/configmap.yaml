@@ -1,0 +1,13 @@
+# Feature flags rendered from git. Mounted into the pod so the toggles are visible and auditable.
+# This is the "premium is a switch, not a backport" mechanism made concrete.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ap.name" . }}-flags
+  labels:
+    {{- include "ap.labels" . | nindent 4 }}
+data:
+  flags.json: |
+    {{- .Values.flags | toJson | nindent 4 }}
+  lane: {{ .Values.lane | quote }}
+  client: {{ .Values.client.name | quote }}

@@ -1,0 +1,16 @@
+# Nix
+result
+result-*
+.direnv/
+
+# Runtime state the demo generates (KUBECONFIG + argocd-agent PKI + per-client agent bundles)
+.kube/
+pki/
+.runtime/
+
+# Local tooling
+.claude/
+
+# Editor / OS
+.DS_Store
+*.swp

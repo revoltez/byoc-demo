@@ -1,0 +1,4 @@
+# Lane: latest -> tracks the moving edge. In production this is "the latest weekly".
+lane: latest
+image:
+  tag: latest

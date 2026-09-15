@@ -1,0 +1,76 @@
+# REFERENCE ONLY -- not applied by bootstrap. Ephemeral Activepieces per open PR on our own
+# control-plane cluster. This is the GitOps shape you would run in production; because the demo's
+# principal-flavoured control plane has no app-controller to reconcile a local Application, the
+# actual demo deploys previews directly with Helm (see scripts/preview.sh). This file documents the
+# ApplicationSet you graduate to.
+#
+# FILES-GENERATOR FORM (below): a git "files" generator over previews/*.yaml -- `task preview:open
+# PR=123` drops a previews/pr-123.yaml that a real Argo CD (with an app-controller) would turn into
+# preview-123.
+#
+# PRODUCTION FORM (commented at the bottom): the real `pullRequest` generator that polls the GitHub
+# API for PRs labelled `preview` and builds a per-SHA image. Same template, different generator.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: pr-previews
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=default"]
+  syncPolicy:
+    preserveResourcesOnDeletion: false # close a PR -> namespace is pruned
+  generators:
+    - git:
+        repoURL: __REPO_URL__
+        revision: __REPO_REVISION__
+        files:
+          - path: previews/*.yaml
+  template:
+    metadata:
+      name: "preview-{{.number}}"
+      namespace: argocd
+      labels:
+        demo/role: pr-preview
+        demo/pr: "{{.number}}"
+    spec:
+      project: default
+      source:
+        repoURL: __REPO_URL__
+        targetRevision: __REPO_REVISION__
+        path: charts/activepieces-lite
+        helm:
+          ignoreMissingValueFiles: true
+          valueFiles:
+            - values.yaml
+            - values.latest.yaml
+          parameters:
+            - name: client.name
+              value: "pr-{{.number}}"
+            - name: persistence.enabled
+              value: "false" # previews are throwaway
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "preview-{{.number}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+# ------------------------------------------------------------------------------------------
+# PRODUCTION FORM: replace the `git` generator above with this to track real GitHub PRs.
+#   generators:
+#     - pullRequest:
+#         github:
+#           owner: activepieces
+#           repo: activepieces
+#           tokenRef:
+#             secretName: github-pr-preview-token
+#             key: token
+#           labels:
+#             - preview
+#         requeueAfterSeconds: 120
+#   # then in the template use {{.number}} and pin the image to the PR head:
+#   #   - name: image.tag
+#   #     value: "{{.head_sha}}"

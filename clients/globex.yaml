@@ -1,0 +1,5 @@
+# A conservative client pinned to the long-lived LTS lane, with SSO switched on.
+name: globex
+lane: lts
+flags:
+  ssoEnabled: true

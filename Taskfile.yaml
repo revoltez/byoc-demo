@@ -1,0 +1,105 @@
+version: "3"
+
+# All the demo verbs. Run `task` with no args to list them.
+# NAME / LANE / PR are passed like:  task client:add NAME=initech LANE=latest
+
+silent: true
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  up:
+    desc: Bring up the control plane (minikube + Argo CD + argocd-agent principal + ApplicationSets)
+    cmds:
+      - bash deploy/bootstrap.sh
+
+  seed:
+    desc: Onboard the SEED_CLIENTS (from demo.env) end to end
+    cmds:
+      - |
+        source demo.env
+        for c in ${SEED_CLIENTS}; do bash scripts/client-add.sh "$c"; done
+
+  client:spin-up:
+    desc: "Onboard one client end to end (their cluster + Activepieces + a dedicated flow)"
+    cmds:
+      - bash scripts/client-spin-up.sh {{.NAME | default "rich-client"}} {{.LANE | default "stable"}}
+
+  client:add:
+    desc: "Onboard a client end to end: their cluster + vendor registration + agent install (NAME=, LANE=)"
+    cmds:
+      - bash scripts/client-add.sh {{.NAME | default "rich-client"}} {{.LANE | default "stable"}}
+
+  client:cluster:
+    desc: "[client] Stand up the client's own cluster, a vcluster in the demo (NAME=)"
+    cmds:
+      - bash scripts/client-cluster.sh {{.NAME | default "rich-client"}}
+
+  client:register:
+    desc: "[vendor] Register a client and emit the agent install bundle (NAME=, LANE=)"
+    cmds:
+      - bash scripts/client-register.sh {{.NAME | default "rich-client"}} {{.LANE | default "stable"}}
+
+  client:install-agent:
+    desc: "[client] Install the vendor's agent bundle into the client cluster, one command (NAME=)"
+    cmds:
+      - bash scripts/agent-install.sh {{.NAME | default "rich-client"}}
+
+  client:seed:
+    desc: "Seed a first admin user + dedicated flow into a client (NAME=)"
+    cmds:
+      - bash scripts/seed-flow.sh {{.NAME | default "rich-client"}}
+
+  client:open:
+    desc: "Port-forward a client's Activepieces UI (NAME=)"
+    cmds:
+      - bash scripts/client-open.sh {{.NAME | default "rich-client"}}
+
+  lane:set:
+    desc: "Move a client to a lane (NAME=, LANE=latest|stable|lts)"
+    cmds:
+      - bash scripts/lane-set.sh {{.NAME}} {{.LANE}}
+
+  rollback:
+    desc: "Roll a client back to a known-good lane (NAME=, LANE=stable)"
+    cmds:
+      - bash scripts/rollback.sh {{.NAME}} {{.LANE | default "stable"}}
+
+  preview:open:
+    desc: "Open an ephemeral PR-preview (PR=123)"
+    cmds:
+      - bash scripts/preview.sh open {{.PR}}
+
+  preview:close:
+    desc: "Close a PR-preview (PR=123)"
+    cmds:
+      - bash scripts/preview.sh close {{.PR}}
+
+  drift:
+    desc: "Introduce drift on a client and watch Argo CD self-heal (NAME=)"
+    cmds:
+      - bash scripts/drift.sh {{.NAME | default "rich-client"}}
+
+  dashboard:
+    desc: Port-forward the Argo CD UI and print the admin login
+    cmds:
+      - bash scripts/dashboard.sh
+
+  down:
+    desc: Tear everything down (vclusters + minikube + PKI)
+    cmds:
+      - bash scripts/teardown.sh
+
+  demo:
+    desc: "Scripted walkthrough: control plane, one client end to end, a PR preview"
+    cmds:
+      - task: up
+      - task: client:spin-up
+      - bash scripts/preview.sh open 123
+      - |
+        echo
+        echo "Now: 'task dashboard' for the fleet view, 'task client:open NAME=rich-client' for the app."
+        echo "Try: 'task lane:set NAME=rich-client LANE=latest' then 'task rollback NAME=rich-client'."

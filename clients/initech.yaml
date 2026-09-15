@@ -1,0 +1,5 @@
+# An adventurous client tracking the latest weekly. Not in SEED_CLIENTS by default; add with
+#   task client:add NAME=initech
+name: initech
+lane: latest
+flags: {}

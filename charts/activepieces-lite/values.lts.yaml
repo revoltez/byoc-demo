@@ -1,0 +1,4 @@
+# Lane: lts -> long-lived track, non-breaking + security fixes only. An older pinned tag.
+lane: lts
+image:
+  tag: "0.71.2"

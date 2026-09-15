@@ -1,0 +1,8 @@
+apiVersion: v2
+name: argocd-root
+description: >-
+  App-of-apps root. In production you install this once and Argo CD pulls every ApplicationSet
+  under gitops/applicationsets from git. The demo's bootstrap.sh applies those ApplicationSets
+  directly (offline path); this chart is the git-native form for when the repo is pushed.
+type: application
+version: 0.1.0

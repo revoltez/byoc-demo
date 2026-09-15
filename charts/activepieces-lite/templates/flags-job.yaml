@@ -1,0 +1,39 @@
+{{- if .Values.flagsJob.enabled }}
+# OPTIONAL and off by default. This is the honest version of "premium is a switch": in real
+# Activepieces the premium flags are PlatformPlan rows, flipped via the platform API, not env
+# vars. This post-sync hook shows that path. It needs an admin token to exist, so in the demo we
+# drive the same idea from scripts/seed-flow.sh instead. Left here as a documented pattern.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ap.name" . }}-flags
+  labels:
+    {{- include "ap.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: set-flags
+          image: curlimages/curl:8.11.1
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "In production: POST the platform API to set PlatformPlan flags."
+              echo "Flags desired for {{ .Values.client.name }} ({{ .Values.lane }} lane):"
+              cat /etc/activepieces-demo/flags.json
+              echo
+              echo "See docs: PATCH /api/v1/platforms/:id with ssoEnabled/tablesEnabled/... "
+          volumeMounts:
+            - name: flags
+              mountPath: /etc/activepieces-demo
+              readOnly: true
+      volumes:
+        - name: flags
+          configMap:
+            name: {{ include "ap.name" . }}-flags
+{{- end }}

@@ -1,0 +1,3 @@
+# Set these to your pushed repo to use the git-native app-of-apps.
+repoURL: https://github.com/REPLACE_ME/byoc-demo.git
+revision: main
